@@ -1878,6 +1878,16 @@ exo_icon_view_expose_event (GtkWidget      *widget,
 
   if (!gtk_cairo_should_draw_window (cr, priv->bin_window))
     return FALSE;
+
+  /* draw a background according to the css theme */
+  style = gtk_widget_get_style_context (widget);
+  gtk_style_context_save (style);
+  gtk_style_context_add_class (style, GTK_STYLE_CLASS_VIEW);
+  gtk_render_background (style, cr,
+                         0, 0,
+                         gtk_widget_get_allocated_width (widget),
+                         gtk_widget_get_allocated_height (widget));
+  gtk_style_context_restore (style);
 #endif
 
   /* don't handle expose if the layout isn't done yet; the layout
@@ -4099,6 +4109,11 @@ exo_icon_view_paint_item (ExoIconView     *icon_view,
   //GtkStateType         state;
   GdkRectangle         cell_area;
   //gboolean             rtl;
+#if GTK_CHECK_VERSION(3, 0, 0)
+  GdkRectangle         aligned_area;
+  GtkStyleContext     *style_context;
+  GtkStateFlags        state;
+#endif
   GList               *lp;
 
   if (G_UNLIKELY (icon_view->priv->model == NULL))
@@ -4106,11 +4121,24 @@ exo_icon_view_paint_item (ExoIconView     *icon_view,
 
   exo_icon_view_set_cell_data (icon_view, item);
 
+#if GTK_CHECK_VERSION(3, 0, 0)
+  style_context = gtk_widget_get_style_context (GTK_WIDGET (icon_view));
+  state = gtk_widget_get_state_flags (GTK_WIDGET (icon_view));
+
+  gtk_style_context_save (style_context);
+  gtk_style_context_add_class (style_context, GTK_STYLE_CLASS_CELL);
+
+  state &= ~(GTK_STATE_FLAG_SELECTED | GTK_STATE_FLAG_PRELIGHT);
+#endif
+
   //rtl = gtk_widget_get_direction (GTK_WIDGET (icon_view)) == GTK_TEXT_DIR_RTL;
 
   if (item->selected)
     {
       flags = GTK_CELL_RENDERER_SELECTED;
+#if GTK_CHECK_VERSION(3, 0, 0)
+      state |= GTK_STATE_FLAG_SELECTED;
+#endif
       //state = gtk_widget_has_focus (icon_view) ? GTK_STATE_SELECTED : GTK_STATE_ACTIVE;
 #if 0
       /* FIXME We hardwire background drawing behind text cell renderers
@@ -4163,8 +4191,14 @@ exo_icon_view_paint_item (ExoIconView     *icon_view,
       //state = GTK_STATE_NORMAL;
     }
 
+/* #endif */
   if (G_UNLIKELY (icon_view->priv->prelit_item == item))
-    flags |= GTK_CELL_RENDERER_PRELIT;
+    {
+      flags |= GTK_CELL_RENDERER_PRELIT;
+#if GTK_CHECK_VERSION(3, 0, 0)
+      state |= GTK_STATE_FLAG_PRELIGHT;
+#endif
+    }
   if (G_UNLIKELY (EXO_ICON_VIEW_FLAG_SET (icon_view, EXO_ICON_VIEW_DRAW_KEYFOCUS) && icon_view->priv->cursor_item == item))
     flags |= GTK_CELL_RENDERER_FOCUSED;
 
@@ -4204,6 +4238,31 @@ exo_icon_view_paint_item (ExoIconView     *icon_view,
       cell_area.x = x - item->area.x + cell_area.x;
       cell_area.y = y - item->area.y + cell_area.y;
 
+#if GTK_CHECK_VERSION(3, 0, 0)
+      gtk_style_context_set_state (style_context, state);
+
+      if (info->is_text)
+        {
+          gtk_cell_renderer_get_aligned_area (info->cell,
+                                              GTK_WIDGET (icon_view),
+                                              flags,
+                                              &cell_area,
+                                              &aligned_area);
+
+          gtk_render_background (style_context, drawable,
+                                 aligned_area.x, aligned_area.y,
+                                 aligned_area.width, aligned_area.height);
+
+          /* draw outline if focused */
+          if (flags & GTK_CELL_RENDERER_FOCUSED)
+            {
+              gtk_render_focus (style_context, drawable,
+                                aligned_area.x, aligned_area.y,
+                                aligned_area.width, aligned_area.height);
+            }
+        }
+#endif
+
       gtk_cell_renderer_render (info->cell,
                                 drawable,
                                 GTK_WIDGET (icon_view),
@@ -4214,6 +4273,10 @@ exo_icon_view_paint_item (ExoIconView     *icon_view,
                                 flags);
 
     }
+
+#if GTK_CHECK_VERSION(3, 0, 0)
+  gtk_style_context_restore (style_context);
+#endif
 }
 
 
