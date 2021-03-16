@@ -1989,9 +1989,7 @@ exo_icon_view_expose_event (GtkWidget      *widget,
     }
 
   if (G_UNLIKELY (dest_item != NULL || priv->doing_rubberband))
-#if GTK_CHECK_VERSION(3, 0, 0)
-      style = gtk_widget_get_style_context (widget);
-#else
+#if !GTK_CHECK_VERSION(3, 0, 0)
       style = gtk_widget_get_style (widget);
 #endif
 
