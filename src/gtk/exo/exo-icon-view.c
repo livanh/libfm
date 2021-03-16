@@ -1988,8 +1988,8 @@ exo_icon_view_expose_event (GtkWidget      *widget,
 #endif
     }
 
-  if (G_UNLIKELY (dest_item != NULL || priv->doing_rubberband))
 #if !GTK_CHECK_VERSION(3, 0, 0)
+  if (G_UNLIKELY (dest_item != NULL || priv->doing_rubberband))
       style = gtk_widget_get_style (widget);
 #endif
 
