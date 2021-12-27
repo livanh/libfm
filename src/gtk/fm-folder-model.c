@@ -729,8 +729,58 @@ static void fm_folder_model_get_value(GtkTreeModel *tree_model,
             /* FIXME: use "emblem-symbolic-link" if file is some kind of link */
             /* special handle for desktop entries that have invalid icon */
             if(fm_file_info_is_dir(info))
-                item->icon = fm_pixbuf_from_icon_with_fallback(icon,
-                                                model->icon_size, "folder");
+            {
+                gchar* string = g_icon_to_string(icon);
+                if (strncmp(string,". GThemedIcon folder", 20) != 0)
+                {
+                    if (model->icon_size >= fm_config->thumbnail_threshold)
+                    {
+                        item->icon = fm_pixbuf_from_icon_forced(icon,
+                                                        model->icon_size, "folder");
+                        GtkIconInfo* ii = gtk_icon_theme_lookup_by_gicon(gtk_icon_theme_get_default(), G_ICON(icon), model->icon_size, GTK_ICON_LOOKUP_FORCE_SIZE);
+                        GdkPixbuf* temp_icon;
+                        if(ii)
+                        {
+                            temp_icon = gtk_icon_info_load_icon(ii, NULL);
+                            gtk_icon_info_free(ii);
+                        }
+                        else
+                        {
+                            temp_icon = gtk_icon_theme_load_icon(
+                                gtk_icon_theme_get_default(), "unknown", model->icon_size,
+                                GTK_ICON_LOOKUP_USE_BUILTIN|GTK_ICON_LOOKUP_FORCE_SIZE,
+                                NULL);
+                        }
+                        float overlay_relative_size = 0.5;
+                        int icon_width = gdk_pixbuf_get_width(item->icon);
+                        int icon_height = gdk_pixbuf_get_height(item->icon);
+                        int overlay_width = icon_width * overlay_relative_size;
+                        int overlay_height = icon_height * overlay_relative_size;
+                        gdk_pixbuf_composite(
+                            temp_icon, item->icon, /* src, dst */
+                            icon_width - overlay_width, /* dst_x */
+                            icon_height - overlay_height, /* dst_y */
+                            overlay_width, /* dst_width */
+                            overlay_height, /* dst_height */
+                            icon_width - overlay_width, /* offset_x */
+                            icon_height - overlay_height, /* offset_y */
+                            overlay_relative_size, overlay_relative_size, /* scale_x, scale_y */
+                            GDK_INTERP_BILINEAR, 255 /* interp_type, overall_alpha */
+                        );
+                    }
+                    else
+                    {
+                        item->icon = fm_pixbuf_from_icon_with_fallback(icon,
+                                                        model->icon_size, "folder");
+                    }
+                }
+                else
+                {
+                    item->icon = fm_pixbuf_from_icon_with_fallback(icon,
+                                                    model->icon_size, "folder");
+                }
+                g_free(string);
+            }
             else if(fm_file_info_is_desktop_entry(info))
                 item->icon = fm_pixbuf_from_icon_with_fallback(icon,
                                                 model->icon_size, "application-x-executable");

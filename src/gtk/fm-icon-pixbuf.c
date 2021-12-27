@@ -146,6 +146,56 @@ GdkPixbuf* fm_pixbuf_from_icon_with_fallback(FmIcon* icon, int size, const char 
     return pix;
 }
 
+GdkPixbuf* fm_pixbuf_from_icon_forced(FmIcon* icon, int size, const char *forced)
+{
+    GtkIconInfo* ii;
+    GdkPixbuf* pix = NULL;
+    GSList *pixs, *l;
+    PixEntry* ent;
+
+    /* FIXME:
+        1) get/add GQuark for emblem type: no emblem is fm_qdata_id
+        2) get/add GQuark by GQuark in the theme to support multi GdkScreen */
+    pixs = (GSList*)g_object_steal_qdata(G_OBJECT(icon), fm_qdata_id);
+    for( l = pixs; l; l=l->next )
+    {
+        ent = (PixEntry*)l->data;
+        if(ent->size == size) /* cached pixbuf is found! */
+        {
+            /* return stealed data back */
+            g_object_set_qdata_full(G_OBJECT(icon), fm_qdata_id, pixs, destroy_pixbufs);
+            return ent->pix ? GDK_PIXBUF(g_object_ref(ent->pix)) : NULL;
+        }
+    }
+
+    /* no cached icon found, load from disk */
+    char* str = g_icon_to_string(G_ICON(icon));
+    g_debug("unable to load icon %s", str);
+    if(forced)
+        pix = gtk_icon_theme_load_icon(gtk_icon_theme_get_default(), forced,
+                size, GTK_ICON_LOOKUP_USE_BUILTIN|GTK_ICON_LOOKUP_FORCE_SIZE, NULL);
+    if(pix == NULL) /* still unloadable */
+        pix = gtk_icon_theme_load_icon(gtk_icon_theme_get_default(), "unknown",
+                size, GTK_ICON_LOOKUP_USE_BUILTIN|GTK_ICON_LOOKUP_FORCE_SIZE, NULL);
+    if(G_LIKELY(pix))
+    pix = gdk_pixbuf_copy(pix);
+    if(G_LIKELY(pix))
+        g_object_ref(pix);
+    g_free(str);
+
+    /* cache this! */
+    ent = g_slice_new(PixEntry);
+    ent->size = size;
+    ent->pix = pix;
+
+    /* FIXME: maybe we should unload icons that nobody is using to reduce memory usage. */
+    /* g_object_weak_ref(); */
+    pixs = g_slist_prepend(pixs, ent);
+    g_object_set_qdata_full(G_OBJECT(icon), fm_qdata_id, pixs, destroy_pixbufs);
+
+    return pix;
+}
+
 static void on_icon_theme_changed(GtkIconTheme* theme, gpointer user_data)
 {
     g_debug("icon theme changed!");
