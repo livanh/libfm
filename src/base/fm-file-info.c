@@ -434,7 +434,7 @@ _not_desktop_entry:
                         si = &special_dir_info[i];
                         /* compare base name first, and then prefix if needed. */
                         if(si->base_name && strcmp(si->base_name, base_name) == 0
-                            && strncmp(si->path_str, path, (si->base_name - si->path_str)) == 0)
+                            && strcmp(si->path_str, path) == 0)
                         {
                             fi->icon = fm_icon_from_name(si->icon_name);
                             break;
